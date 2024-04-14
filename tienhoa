@@ -2,21 +2,19 @@
 #include <vector>
 #include <algorithm>
 #include <random>
-#include <chrono> 
-#include <iomanip>
-#include <sstream>
-#include <fstream>
-using namespace std::chrono;
+#include <chrono>
+
 using namespace std;
 
-
 const int POPULATION_SIZE = 100;
-const int NUM_GENERATIONS = 100;
+// Tỉ lệ biến dị
 const double CROSSOVER_RATE = 0.6;
 const double MUTATION_RATE = 0.1;
-
-int numCities = 15;
-vector<vector<int>> distances = {
+// Số lần lặp
+const int NUM_GENERATIONS = 100;
+// Ma trận khoảng cách giữa các thành phố
+const int numCities = 15;
+int distanceMatrix[numCities][numCities] = {
     {0, 29, 82, 46, 68, 52, 72, 42, 51, 55, 29, 74, 23, 72, 46},
     {29, 0, 55, 46, 42, 43, 43, 23, 23, 31, 41, 51, 11, 52, 21},
     {82, 55, 0, 68, 46, 55, 23, 43, 41, 29, 79, 21, 64, 31, 51},
@@ -32,38 +30,80 @@ vector<vector<int>> distances = {
     {23, 11, 64, 51, 46, 51, 51, 33, 29, 41, 42, 61, 0, 62, 23},
     {72, 52, 31, 43, 65, 29, 46, 31, 51, 23, 59, 11, 62, 0, 59},
     {46, 21, 51, 64, 23, 59, 33, 37, 11, 37, 61, 55, 23, 59, 0}
-};// data set p01_d.txt
+};
+
+// Định nghĩa một đường đi (là một cá thể trong quần thể)
+/*struct Individual {
+    vector<int> path; // Đường đi
+    int cost; // Chi phí của đường đi
+
+    Individual() : cost(0) {}
+};*/
 
 // Hàm tính tổng chi phí của một đường đi
 int calculateCost(const vector<int>& path) {
     int cost = 0;
-    cost += distances[0][path[0]];
+    // Cộng chi phí từ thành phố 0 đến thành phố đầu tiên trong đường đi
+    cost += distanceMatrix[0][path[0]];
     for (int i = 0; i < path.size() - 1; ++i) {
-        cost += distances[path[i]][path[i + 1]];
+        // Tính chi phí từ thành phố i đến thành phố i+1
+        cost += distanceMatrix[path[i]][path[i + 1]];
     }
-    cost += distances[path.back()][0]; // Chi phí quay về thành phố ban đầu
+    // Cộng chi phí từ thành phố cuối cùng trong đường đi về thành phố 0
+    cost += distanceMatrix[path.back()][0];
     return cost;
 }
 
-// Hàm tạo một gen ngẫu nhiên (một đường đi ngẫu nhiên)
+
+// Hàm tạo một đường đi ngẫu nhiên
 vector<int> generateRandomPath() {
-    vector<int> path(numCities-1);
-    for (int i = 0; i < numCities-1; ++i) {
+    vector<int> path(numCities - 1);
+    for (int i = 0; i < numCities - 1; ++i) {
         path[i] = i + 1;
     }
     random_shuffle(path.begin(), path.end());
     return path;
 }
 
+// Hàm so sánh hai đường đi theo chi phí
+/*bool compareIndividuals(const Individual& ind1, const Individual& ind2) {
+    return ind1.cost < ind2.cost;
+}
+*/
 // Hàm so sánh để sắp xếp các đường đi theo chi phí tăng dần
 bool comparePaths(const vector<int>& path1, const vector<int>& path2) {
     return calculateCost(path1) < calculateCost(path2);
 }
 
+// Hàm chéo đoạn (crossover) giữa hai đường đi
+/*Individual crossover(const Individual& parent1, const Individual& parent2) {
+    Individual child;
+
+    // Copy một phần của parent1 vào child
+    int startPos = rand() % (NUM_CITIES - 1);
+    int endPos = rand() % (NUM_CITIES - 1);
+    if (startPos > endPos) {
+        swap(startPos, endPos);
+    }
+    for (int i = startPos; i <= endPos; ++i) {
+        child.path.push_back(parent1.path[i]);
+    }
+
+    // Thêm các thành phố còn lại từ parent2 vào child theo thứ tự xuất hiện
+    for (int i = 0; i < parent2.path.size(); ++i) {
+        if (find(child.path.begin(), child.path.end(), parent2.path[i]) == child.path.end()) {
+            child.path.push_back(parent2.path[i]);
+        }
+    }
+    // Tính chi phí của child
+    child.cost = calculateCost(child.path);
+
+    return child;
+}*/
 // Hàm chéo đoạn (crossover) giữa 2 đường đi
 vector<int> crossover(const vector<int>& parent1, const vector<int>& parent2) {
-    int startPos = rand() % numCities;
-    int endPos = rand() % numCities;
+    int startPos = rand() % (numCities - 1);
+    int endPos = rand() % (numCities - 1);
     if (startPos > endPos) {
         swap(startPos, endPos);
     }
@@ -74,80 +114,76 @@ vector<int> crossover(const vector<int>& parent1, const vector<int>& parent2) {
     }
 
     int currentIndex = 0;
-    for (int i = 0; i < numCities; ++i) {
+    for (int i = 0; i < (numCities - 1); ++i) {
         if (currentIndex == startPos) {
             currentIndex = endPos + 1;
         }
         if (find(child.begin(), child.end(), parent2[i]) == child.end()) {
             child[currentIndex++] = parent2[i];
-            currentIndex %= numCities;
+            currentIndex %= (numCities - 1);
         }
     }
 
     return child;
 }
 
+// Hàm đột biến một đường đi
+/*void mutate(Individual& individual) {
+    int pos1 = rand() % (NUM_CITIES - 1);
+    int pos2 = rand() % (NUM_CITIES - 1);
+    swap(individual.path[pos1], individual.path[pos2]);
+    individual.cost = calculateCost(individual.path);
+}*/
 // Hàm đột biến (mutation)
 void mutate(vector<int>& path) {
-    int pos1 = rand() % numCities;
-    int pos2 = rand() % numCities;
+    int pos1 = rand() % (numCities - 1);
+    int pos2 = rand() % (numCities - 1);
     swap(path[pos1], path[pos2]);
 }
 
-void import(ifstream & file) {
-    string line;
-    while (getline(file, line)) {
-        vector<int> row;
-        istringstream iss(line);
-        int number;
-
-        while (iss >> number) {
-            row.push_back(number);
-        }
-
-        distances.push_back(row);
-        numCities += 1;
-    }
-}
-std::vector<std::vector<int>> generateRandomMatrix(int numCities, int maxDistance, int seed) {
-    std::mt19937 rng(seed);
-    std::uniform_int_distribution<int> dist(1, maxDistance);
-
-    std::vector<std::vector<int>> matrix(numCities, std::vector<int>(numCities, 0));
-
-    for (int i = 0; i < numCities; ++i) {
-        for (int j = i + 1; j < numCities; ++j) {
-            int distance = dist(rng);
-            matrix[i][j] = distance;
-            matrix[j][i] = distance;
-        }
-    }
-
-    return matrix;
-}
 int main() {
-    //ifstream file("input.txt");// Dataset file
-    //import(file);
-    //file.close();
-
-    //int maxDistance = 100; // do dai toi da
-    //int seed = 10042024;
-    //vector<std::vector<int>> matrix = generateRandomMatrix(numCities, maxDistance, seed);
-    //distances = matrix;
-
-    auto start_time = high_resolution_clock::now();
-
-    // Khởi tạo quần thể ban đầu
+    // Khởi tạo quần thể
+/*    vector<Individual> population(POPULATION_SIZE);
+    for (int i = 0; i < POPULATION_SIZE; ++i) {
+        population[i].path = generateRandomPath();
+        population[i].cost = calculateCost(population[i].path);
+    }*/
     vector<vector<int>> population;
     for (int i = 0; i < POPULATION_SIZE; ++i) {
         population.push_back(generateRandomPath());
     }
-
     srand(time(0));
-    int bestCost = INT16_MAX; 
-    vector<int> bestPath(numCities); 
+    int bestCost = INT16_MAX;
+    vector<int> bestPath(numCities);
     vector<int> currentBestPath(numCities);
 
+    // Vòng lặp chính
+/*    for (int iter = 0; iter < NUM_ITERATIONS; ++iter) {
+        // Sắp xếp quần thể
+        sort(population.begin(), population.end(), compareIndividuals);
+
+        // Lấy hai đường đi có chi phí thấp nhất
+        Individual parent1 = population[0];
+        Individual parent2 = population[1];
+
+        // Sinh ra con mới từ hai cha mẹ và thêm vào quần thể
+        uniform_real_distribution<double> distribution(0.0, 1.0);
+        if (distribution(generator) < CROSSOVER_RATE) {
+            Individual child = crossover(parent1, parent2);
+            population.push_back(child);
+        }
+        // Đột biến con mới sinh ra
+        uniform_real_distribution<double> mutation_distribution(0.0, 1.0);
+        if (mutation_distribution(generator) < MUTATION_RATE) {
+            int index = rand() % POPULATION_SIZE;
+            mutate(population[index]);
+        }
+
+        // Giảm kích thước quần thể để duy trì kích thước cố định
+        while (population.size() > POPULATION_SIZE) {
+            population.pop_back();
+        }
+    }*/
     // Lặp qua các thế hệ
     for (int generation = 0; generation < NUM_GENERATIONS; ++generation) {
         // Sinh ra các đường đi mới từ quá trình chéo đoạn và đột biến
@@ -189,21 +225,24 @@ int main() {
         }
 
         // In ra chi phí của đường đi ngắn nhất trong thế hệ hiện tại
-        //cout << "Generation " << generation + 1 << ", shortest path cost: " << calculateCost(population[0]) << endl;
-        //cout << "Best path cost so far: " << bestCost << endl;
+        // cout << "Generation " << generation + 1 << ", shortest path cost: " << calculateCost(population[0]) << endl;
+        // cout << "Best path cost so far: " << bestCost << endl;
     }
 
-    auto stop_time = high_resolution_clock::now();
-    auto duration = duration_cast<nanoseconds>(stop_time - start_time);
-    float time = (duration.count()) / (1e+9);
-
-    cout << "\nTime : " << std::fixed << std::setprecision(7) << time << " s" << endl;
-
-    // Kết quả là đường đi có chi phí thấp nhất
-    cout << "Best path: ";
-    for (int city : bestPath) {
+    // Tìm và in ra đường đi tốt nhất
+/*    sort(population.begin(), population.end(), compareIndividuals);
+    cout << "Best Path: 0 ";
+    for (int city : population[0].path) {
         cout << city << " ";
     }
+    cout << "0" << endl;
+    cout << "Cost: " << population[0].cost << endl;*/
+    // Kết quả là đường đi có chi phí thấp nhất
+    cout << "Best path: 0 ";
+    for (int city : bestPath) {
+        cout << city + 1 << " ";
+    }
     cout << endl << "Cost: " << bestCost;
+
     return 0;
 }
